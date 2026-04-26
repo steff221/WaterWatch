@@ -1,0 +1,11 @@
+{
+  "name": "waterwatch-backend",
+  "private": true,
+  "version": "0.1.0",
+  "description": "WaterWatch backend API server",
+  "scripts": {
+    "dev": "python3 app.py",
+    "start": "python3 app.py",
+    "test": "pytest"
+  }
+}

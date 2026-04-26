@@ -178,8 +178,12 @@ class CatalogSearchClient:
             limit: Max results
             
         Returns:
-            Catalog search results with features
+            Catalog search results with features. Includes "demo": true when in DEMO_MODE.
         """
+        # Check DEMO_MODE first
+        if get_demo_mode():
+            return generate_demo_sentinel2_results(bbox, start_date, end_date)
+        
         logger.info(f"Searching Sentinel-2 L2A for bbox={bbox}, dates={start_date} to {end_date}")
         
         query = {
@@ -238,8 +242,12 @@ class CatalogSearchClient:
             limit: Max results
             
         Returns:
-            Catalog search results
+            Catalog search results. Includes "demo": true when in DEMO_MODE.
         """
+        # Check DEMO_MODE first
+        if get_demo_mode():
+            return generate_demo_sentinel1_results(bbox, start_date, end_date)
+        
         logger.info(f"Searching Sentinel-1 GRD for bbox={bbox}, dates={start_date} to {end_date}")
         
         query = {
@@ -296,7 +304,13 @@ class ProcessAPIClient:
         Request NDWI (Normalized Difference Water Index) from Sentinel-2 L2A.
         NDWI = (NIR - SWIR) / (NIR + SWIR)
         Values > 0.4 indicate water; > 0.7 possible anomaly.
+        
+        Returns simulated data with "demo": true when in DEMO_MODE.
         """
+        # Check DEMO_MODE first
+        if get_demo_mode():
+            return generate_demo_ndwi_data(width, height)
+        
         logger.info(f"Requesting NDWI for bbox={bbox}, date={date}")
         
         # Sentinel Hub evalscript for NDWI calculation
@@ -387,7 +401,13 @@ function evaluatePixel(sample) {
         """
         Request VV backscatter from Sentinel-1 GRD with orthorectification.
         Uses GAMMA0_TERRAIN normalization for water detection fallback.
+        
+        Returns simulated data with "demo": true when in DEMO_MODE.
         """
+        # Check DEMO_MODE first
+        if get_demo_mode():
+            return generate_demo_sar_data(width, height)
+        
         logger.info(f"Requesting SAR VV layer for bbox={bbox}, date={date}")
         
         evalscript = """
@@ -473,3 +493,185 @@ def get_date_range(days_back: int = 7) -> Tuple[str, str]:
     end_date = datetime.utcnow()
     start_date = end_date - timedelta(days=days_back)
     return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+
+
+# ============================================================================
+# DEMO MODE: Simulated Data for Development & Testing
+# ============================================================================
+
+def get_demo_mode() -> bool:
+    """Check if DEMO_MODE is enabled. Default: True (no credentials needed)."""
+    import os
+    demo_env = os.getenv("DEMO_MODE", "true").lower()
+    return demo_env in ("true", "1", "yes")
+
+
+def generate_demo_sentinel2_results(bbox: List[float], start_date: str, end_date: str) -> Dict[str, Any]:
+    """
+    Generate simulated Sentinel-2 catalog search results for demo mode.
+    Returns clearly labeled demo data with "demo": true.
+    """
+    logger.info(f"[DEMO MODE] Generating simulated Sentinel-2 results for bbox={bbox}")
+    
+    # Create demo feature
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    demo_feature = {
+        "type": "Feature",
+        "properties": {
+            "id": f"S2A_MSIL2A_20260410T094011_N0510_R037_T34SGA_20260410T105341",
+            "datetime": f"{today}T09:40:11Z",
+            "platform": "sentinel-2a",
+            "instruments": ["msi"],
+            "constellation": "sentinel-2",
+            "mission": "Copernicus Sentinel-2",
+            "eo:cloud_cover": 15.2,
+            "s2:mgrs_tile": "34SGA",
+            "s2:datatake_id": "GS2A_20260410T094011_039624_N05.10",
+            "s2:product_type": "L2A",
+            "s2:processing_baseline": "05.10",
+            "s2:granule_id": "S2A_OPER_MSI_L2A_TL_VGS4_20260410T105341_A039624_T34SGA_N05.10",
+            "demo": True,
+        },
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+                [bbox[0], bbox[1]],
+                [bbox[2], bbox[1]],
+                [bbox[2], bbox[3]],
+                [bbox[0], bbox[3]],
+                [bbox[0], bbox[1]]
+            ]]
+        },
+        "links": [
+            {
+                "rel": "self",
+                "href": "https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/collections/sentinel-2-l2a/items/S2A_MSIL2A_20260410T094011_N0510_R037_T34SGA_20260410T105341"
+            }
+        ],
+        "assets": {
+            "thumbnail": {"href": "https://example.com/demo-thumbnail.png"},
+            "visual": {"href": "https://example.com/demo-visual.tif"},
+            "B8A": {"href": "https://example.com/demo-B8A.tif"},  # NIR
+            "B11": {"href": "https://example.com/demo-B11.tif"},  # SWIR
+        }
+    }
+    
+    return {
+        "type": "FeatureCollection",
+        "features": [demo_feature],
+        "context": {
+            "returned": 1,
+            "limit": 10,
+            "matched": 1,
+        },
+        "demo": True,
+    }
+
+
+def generate_demo_sentinel1_results(bbox: List[float], start_date: str, end_date: str) -> Dict[str, Any]:
+    """
+    Generate simulated Sentinel-1 catalog search results for demo mode.
+    """
+    logger.info(f"[DEMO MODE] Generating simulated Sentinel-1 results for bbox={bbox}")
+    
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    demo_feature = {
+        "type": "Feature",
+        "properties": {
+            "id": f"S1A_IW_GRDH_1SDV_20260410T164105_20260410T164134_051621_06539E_EC1A",
+            "datetime": f"{today}T16:41:05Z",
+            "platform": "sentinel-1a",
+            "instruments": ["c-sar"],
+            "constellation": "sentinel-1",
+            "sat:orbit_state": "ascending",
+            "sat:relative_orbit": 37,
+            "sar:instrument_mode": "IW",
+            "sar:polarizations": ["VV", "VH"],
+            "sar:product_type": "GRD",
+            "demo": True,
+        },
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+                [bbox[0], bbox[1]],
+                [bbox[2], bbox[1]],
+                [bbox[2], bbox[3]],
+                [bbox[0], bbox[3]],
+                [bbox[0], bbox[1]]
+            ]]
+        },
+        "links": [
+            {
+                "rel": "self",
+                "href": "https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/collections/sentinel-1-grd/items/S1A_IW_GRDH_1SDV_20260410T164105_20260410T164134_051621_06539E_EC1A"
+            }
+        ],
+        "assets": {
+            "thumbnail": {"href": "https://example.com/demo-s1-thumbnail.png"},
+            "VV": {"href": "https://example.com/demo-VV.tif"},
+            "VH": {"href": "https://example.com/demo-VH.tif"},
+        }
+    }
+    
+    return {
+        "type": "FeatureCollection",
+        "features": [demo_feature],
+        "context": {
+            "returned": 1,
+            "limit": 10,
+            "matched": 1,
+        },
+        "demo": True,
+    }
+
+
+def generate_demo_ndwi_data(width: int = 512, height: int = 512) -> Tuple[Dict[str, Any], bytes]:
+    """
+    Generate simulated NDWI layer data for demo mode.
+    Returns metadata and synthetic TIFF bytes.
+    """
+    logger.info(f"[DEMO MODE] Generating simulated NDWI layer ({width}x{height})")
+    
+    # Create synthetic NDWI array (realistic values: 0.3-0.6 for water)
+    ndwi_array = np.random.uniform(0.35, 0.55, (height, width)).astype(np.float32)
+    
+    # Add some realistic variation
+    ndwi_array[100:200, 100:200] = np.random.uniform(0.65, 0.75, (100, 100))  # Anomaly area
+    
+    # Convert to bytes (simplified TIFF-like structure for demo)
+    image_bytes = ndwi_array.tobytes()
+    
+    metadata = {
+        "status_code": 200,
+        "content_type": "image/tiff",
+        "size_bytes": len(image_bytes),
+        "demo": True,
+    }
+    
+    return metadata, image_bytes
+
+
+def generate_demo_sar_data(width: int = 512, height: int = 512) -> Tuple[Dict[str, Any], bytes]:
+    """
+    Generate simulated SAR VV backscatter data for demo mode.
+    Returns metadata and synthetic TIFF bytes.
+    """
+    logger.info(f"[DEMO MODE] Generating simulated SAR VV layer ({width}x{height})")
+    
+    # Create synthetic VV backscatter in dB (realistic: -15 to -8 dB over water)
+    vv_array = np.random.uniform(-15, -10, (height, width)).astype(np.float32)
+    
+    # Add some realistic variation
+    vv_array[150:250, 150:250] = np.random.uniform(-7, -3, (100, 100))  # Anomaly area
+    
+    # Convert to bytes
+    image_bytes = vv_array.tobytes()
+    
+    metadata = {
+        "status_code": 200,
+        "content_type": "image/tiff",
+        "size_bytes": len(image_bytes),
+        "demo": True,
+    }
+    
+    return metadata, image_bytes

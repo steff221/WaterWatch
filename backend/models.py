@@ -10,6 +10,22 @@ from datetime import datetime
 import uuid
 
 
+def _json_safe(value: Any) -> Any:
+    """Convert NumPy and nested values into JSON-serializable Python types."""
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_safe(item) for item in value]
+    if hasattr(value, "item") and callable(value.item):
+        try:
+            return value.item()
+        except Exception:
+            return value
+    return value
+
+
 class AlertType(Enum):
     """Alert severity levels based on risk signals."""
     NORMAL = "normal"
@@ -163,7 +179,7 @@ class SatelliteData:
     processing_date: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return _json_safe(asdict(self))
 
 
 @dataclass
@@ -181,7 +197,7 @@ class RiskSignal:
     timestamp: str
     
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return _json_safe(asdict(self))
 
 
 @dataclass
@@ -197,7 +213,7 @@ class CitizenReport:
     upvotes: int = 0
     
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return _json_safe(asdict(self))
 
 
 @dataclass
@@ -211,7 +227,7 @@ class MovementModel:
     confidence: float
     
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        return _json_safe(asdict(self))
 
 
 @dataclass
@@ -233,7 +249,7 @@ class WaterWatchAlert:
     
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to JSON-compatible dict."""
-        return {
+        return _json_safe({
             "alert_id": self.alert_id,
             "station_id": self.station_id,
             "area": self.area,
@@ -247,7 +263,7 @@ class WaterWatchAlert:
             "recommended_action": self.recommended_action,
             "timestamp_utc": self.timestamp_utc,
             "expires_at": self.expires_at,
-        }
+        })
 
 
 def create_station_config(station: RiverStation) -> Dict[str, Any]:

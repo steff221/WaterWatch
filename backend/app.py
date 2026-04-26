@@ -682,4 +682,4 @@ if __name__ == "__main__":
     logger.info(f"Copernicus Client ID configured: {bool(COPERNICUS_CLIENT_ID)}")
     
     # Development server
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5001")), debug=True)
