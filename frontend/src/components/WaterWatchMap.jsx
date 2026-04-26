@@ -553,6 +553,18 @@ const WaterWatchMap = () => {
         </div>
       )}
 
+      {(demoMode || demoResult?.demo) && (
+        <div className="demo-mode-banner">
+          <div className="demo-banner-content">
+            <span className="demo-banner-icon">⚠️</span>
+            <span className="demo-banner-text">
+              <strong>DEMO MODE ACTIVE</strong> — Using simulated satellite data. 
+              {!authStatus.authenticated && ' Real Copernicus credentials not configured.'}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="body">
         <div className="mapwrap">
           {activeView === 'map' ? (
@@ -995,6 +1007,11 @@ const WaterWatchMap = () => {
         .lb { font-size: 11px; padding: 4px 11px; border-radius: 6px; border: 1px solid #2e4258; background: #121c28; color: #8fb2d3; cursor: pointer; }
         .lb.on { background: #2f4f6d; color: #f0f7ff; border-color: #4f7397; }
         .abar { background: #341f1f; color: #ffb2b2; font-size: 11px; padding: 6px 14px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #4b2b2b; }
+        .demo-mode-banner { background: #3d3015; color: #f5dba2; font-size: 12px; padding: 8px 14px; display: flex; align-items: center; border-bottom: 2px solid #8a6f2f; }
+        .demo-banner-content { display: flex; align-items: center; gap: 10px; width: 100%; }
+        .demo-banner-icon { font-size: 16px; }
+        .demo-banner-text { flex: 1; line-height: 1.4; }
+        .demo-banner-text strong { color: #ffeaa7; }
         .hero-wrap { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; padding: 10px 14px; background: linear-gradient(180deg, #0a131d, #09111a); border-bottom: 1px solid #1b2b3c; }
         .hero-main, .hero-demo { border: 1px solid #2a425a; border-radius: 10px; background: #0f1b28; padding: 10px; }
         .hero-title { font-size: 15px; font-weight: 700; color: #e2f2ff; }

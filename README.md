@@ -3,6 +3,7 @@
 ![WaterWatch Logo](https://img.shields.io/badge/WaterWatch-MVP-blue)
 ![Python](https://img.shields.io/badge/Python-3.8+-blue)
 ![React](https://img.shields.io/badge/React-18+-61dafb)
+![Backend Tests](https://github.com/waterwatchapp/waterwatch/actions/workflows/test.yml/badge.svg)
 
 ## Overview
 
@@ -123,9 +124,9 @@ cp .env.example .env
 pip install -r requirements.txt
 
 # Run API server (development)
-python app.py
+npm run dev
 
-# Server runs at http://localhost:5000
+# Server runs at http://localhost:5001
 ```
 
 **Test API:**
@@ -162,6 +163,111 @@ jupyter notebook WaterWatch_Connected_Copernicus_API.ipynb
 # Set Copernicus credentials in cell 1
 # Run through all cells
 ```
+
+---
+
+## Demo vs Production
+
+### Demo Mode (Default, No Credentials Needed)
+
+**When enabled:** `DEMO_MODE=true` (default)
+
+Demo Mode provides a fully functional WaterWatch experience with **simulated satellite data**:
+
+- ✅ **Get started immediately** — no Copernicus registration required
+- ✅ **Test UI/UX** — see complete workflow with demo alerts
+- ✅ **Develop features** — build new components without API overhead
+- ✅ **Run tests** — CI pipeline passes without credentials
+
+**Visible indicators:**
+- Backend returns `"demo": true` in `satellite_signal`
+- Frontend shows prominent **"DEMO MODE ACTIVE"** banner
+- Auth badge displays "DEMO MODE" instead of "AUTH OK"
+
+**Demo endpoints and responses:**
+- `GET /api/health` → Always works ✅
+- `GET /api/stations` → Returns real station list ✅
+- `POST /api/alerts/station/{station_id}` → Returns simulated alerts with `"demo": true` ✅
+- `GET /api/catalog/sentinel2/{station_id}` → Returns demo Sentinel-2 product ✅
+- `GET /api/catalog/sentinel1/{station_id}` → Returns demo Sentinel-1 product ✅
+
+**Example demo alert response:**
+```json
+{
+  "alert_id": "alert_a1b2c3d4",
+  "station_id": "vardar_vs",
+  "alert_type": "warning",
+  "satellite_signal": {
+    "source": "fused-s2-s1",
+    "sigma": 1.8,
+    "confidence": 0.82,
+    "demo": true
+  },
+  "timestamp_utc": "2024-01-15T10:30:00Z"
+}
+```
+
+### Production Mode (Real Satellite Data)
+
+**When enabled:** Set `DEMO_MODE=false` and configure Copernicus credentials
+
+Production Mode uses **real satellite imagery**:
+
+- **Real NDWI data** from Sentinel-2 L2A
+- **Real SAR VV backscatter** from Sentinel-1 GRD
+- **Live catalog searches** with actual product metadata
+- **Processing API requests** for on-demand image analysis
+
+**Required setup:**
+```bash
+# 1. Register for Copernicus account
+#    https://dataspace.copernicus.eu/
+
+# 2. Create OAuth2 app credentials (client_id, client_secret)
+
+# 3. Set environment variables
+export DEMO_MODE=false
+export COPERNICUS_CLIENT_ID="your-client-id"
+export COPERNICUS_CLIENT_SECRET="your-client-secret"
+
+# 4. Restart backend
+python app.py
+```
+
+**Real data endpoints:**
+- `GET /api/auth/status` → Returns OAuth token status
+- `GET /api/catalog/sentinel2/{station_id}` → Queries real Copernicus Catalog API
+- `POST /api/alerts/station/{station_id}` → Uses real Process API for NDWI/SAR calculation
+- Response includes `"demo": false` or no demo flag
+
+**Example production alert response:**
+```json
+{
+  "alert_id": "alert_x9y8z7w6",
+  "station_id": "vardar_vs",
+  "alert_type": "critical",
+  "satellite_signal": {
+    "source": "sentinel-2-l2a",
+    "sigma": 2.8,
+    "confidence": 0.91,
+    "current_value": 0.58,
+    "baseline_mean": 0.35
+  },
+  "timestamp_utc": "2024-01-15T10:35:42Z"
+}
+```
+
+### Endpoint Reference: Demo vs Production
+
+| Endpoint | Demo Mode | Production Mode |
+|----------|-----------|-----------------|
+| `/api/health` | ✅ Works | ✅ Works |
+| `/api/stations` | ✅ Works | ✅ Works |
+| `/api/auth/status` | Returns not_configured | Returns auth_ok or auth_failed |
+| `/api/alerts/station/{id}` | ✅ Simulated data | ✅ Real satellite data |
+| `/api/catalog/sentinel2/{id}` | ✅ Demo products | ✅ Real product search |
+| `/api/catalog/sentinel1/{id}` | ✅ Demo products | ✅ Real product search |
+| `/api/reports/submit` | ✅ Works (in-memory) | ✅ Works (DB backed) |
 
 ---
 
@@ -491,7 +597,9 @@ CMD ["serve", "-s", "build", "-l", "3000"]
 
 ## Contributing
 
-WaterWatch is a hackathon project. To improve:
+WaterWatch is an open-source environmental monitoring platform. Contributions are welcome.
+
+To contribute:
 
 1. **Fork** this repository
 2. Create a **feature branch** (`git checkout -b feature/my-feature`)
