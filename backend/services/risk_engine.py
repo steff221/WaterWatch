@@ -65,7 +65,7 @@ class RiskEngine:
         # Calculate z-score
         sigma = (current_ndwi - baseline["mean"]) / (baseline["std"] + 1e-6)
         
-        anomaly_detected = abs(sigma) > self.SIGMA_ANOMALY_THRESHOLD
+        anomaly_detected = bool(abs(sigma) > self.SIGMA_ANOMALY_THRESHOLD)
         
         risk_signal = RiskSignal(
             station_id=station_id,
@@ -111,7 +111,7 @@ class RiskEngine:
         sigma = (current_vv - baseline["mean"]) / (baseline["std"] + 1e-6)
         
         # For SAR: MORE NEGATIVE = MORE WATER-LIKE (smoother, less backscatter)
-        anomaly_detected = sigma < -self.SIGMA_ANOMALY_THRESHOLD
+        anomaly_detected = bool(sigma < -self.SIGMA_ANOMALY_THRESHOLD)
         
         risk_signal = RiskSignal(
             station_id=station_id,
@@ -186,7 +186,7 @@ class RiskEngine:
                 timestamp=datetime.utcnow().isoformat() + "Z",
             )
         
-        anomaly_detected = abs(fused_sigma) > self.SIGMA_ANOMALY_THRESHOLD
+        anomaly_detected = bool(abs(fused_sigma) > self.SIGMA_ANOMALY_THRESHOLD)
         
         fused_signal = RiskSignal(
             station_id=station_id,
@@ -225,6 +225,9 @@ class RiskEngine:
         
         if fused_signal.confidence < 0.4:
             return AlertType.DATA_SPARSE
+
+        if fused_signal.confidence >= 0.8 and abs(fused_signal.sigma) >= 2.0:
+            return AlertType.CRITICAL
         
         # Multi-factor scoring
         anomaly_score = abs(fused_signal.sigma) * fused_signal.confidence
