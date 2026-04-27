@@ -23,14 +23,14 @@ WaterWatch is a unified platform for **satellite-based water quality anomaly det
 ```
 ┌─────────────────────────────────────────────────────────┐
 │         Copernicus Data Space Sentinel Hub              │
-│   OAuth2 | Catalog API | Process API (NDWI/SAR)        │
+│   OAuth2 | Catalog API | Process API (NDWI/SAR)         │ 
 └────────────────────┬────────────────────────────────────┘
                      │
         ┌────────────┴────────────┐
         │                         │
     ┌───▼────────┐         ┌──────▼───┐
-    │ Sentinel-2 │         │ Sentinel-1│
-    │  NDWI      │         │  SAR VV   │
+    │ Sentinel-2 │         │Sentinel-1│
+    │  NDWI      │         │  SAR VV  │
     └───┬────────┘         └──────┬───┘
         │                         │
         └────────────┬────────────┘
