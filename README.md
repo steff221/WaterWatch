@@ -56,7 +56,7 @@ WaterWatch is a unified platform for **satellite-based water quality anomaly det
         └────────────┬────────────┘
                      │
         ┌────────────▼────────────┐
-        │   Frontend LiveMap       │
+        │   Frontend LiveMap      │
         │  (React/Leaflet)        │
         └─────────────────────────┘
 ```
@@ -174,10 +174,10 @@ jupyter notebook WaterWatch_Connected_Copernicus_API.ipynb
 
 Demo Mode provides a fully functional WaterWatch experience with **simulated satellite data**:
 
-- ✅ **Get started immediately** — no Copernicus registration required
-- ✅ **Test UI/UX** — see complete workflow with demo alerts
-- ✅ **Develop features** — build new components without API overhead
-- ✅ **Run tests** — CI pipeline passes without credentials
+-  **Get started immediately** — no Copernicus registration required
+-  **Test UI/UX** — see complete workflow with demo alerts
+-  **Develop features** — build new components without API overhead
+- **Run tests** — CI pipeline passes without credentials
 
 **Visible indicators:**
 - Backend returns `"demo": true` in `satellite_signal`
@@ -185,11 +185,11 @@ Demo Mode provides a fully functional WaterWatch experience with **simulated sat
 - Auth badge displays "DEMO MODE" instead of "AUTH OK"
 
 **Demo endpoints and responses:**
-- `GET /api/health` → Always works ✅
-- `GET /api/stations` → Returns real station list ✅
-- `POST /api/alerts/station/{station_id}` → Returns simulated alerts with `"demo": true` ✅
-- `GET /api/catalog/sentinel2/{station_id}` → Returns demo Sentinel-2 product ✅
-- `GET /api/catalog/sentinel1/{station_id}` → Returns demo Sentinel-1 product ✅
+- `GET /api/health` → Always works 
+- `GET /api/stations` → Returns real station list 
+- `POST /api/alerts/station/{station_id}` → Returns simulated alerts with `"demo": true` 
+- `GET /api/catalog/sentinel2/{station_id}` → Returns demo Sentinel-2 product 
+- `GET /api/catalog/sentinel1/{station_id}` → Returns demo Sentinel-1 product 
 
 **Example demo alert response:**
 ```json
@@ -261,13 +261,13 @@ python app.py
 
 | Endpoint | Demo Mode | Production Mode |
 |----------|-----------|-----------------|
-| `/api/health` | ✅ Works | ✅ Works |
-| `/api/stations` | ✅ Works | ✅ Works |
+| `/api/health` |  Works |  Works |
+| `/api/stations` |  Works | Works |
 | `/api/auth/status` | Returns not_configured | Returns auth_ok or auth_failed |
-| `/api/alerts/station/{id}` | ✅ Simulated data | ✅ Real satellite data |
-| `/api/catalog/sentinel2/{id}` | ✅ Demo products | ✅ Real product search |
-| `/api/catalog/sentinel1/{id}` | ✅ Demo products | ✅ Real product search |
-| `/api/reports/submit` | ✅ Works (in-memory) | ✅ Works (DB backed) |
+| `/api/alerts/station/{id}` |  Simulated data |  Real satellite data |
+| `/api/catalog/sentinel2/{id}` |  Demo products |  Real product search |
+| `/api/catalog/sentinel1/{id}` |  Demo products |  Real product search |
+| `/api/reports/submit` | Works (in-memory) |  Works (DB backed) |
 
 ---
 
@@ -424,14 +424,14 @@ ELSE:
 
 ### Responsible Language
 
-✅ **Use These Terms:**
+ **Use These Terms:**
 - "Satellite-based anomaly"
 - "Risk estimation"
 - "Early warning system"
 - "Possible pollution risk"
 - "Requires on-site verification"
 
-❌ **Avoid These Claims:**
+ **Avoid These Claims:**
 - "Satellite proves water is polluted"
 - "Water is safe/unsafe"
 - "Definitive measurement of pollution"
@@ -645,4 +645,4 @@ For issues: [GitHub Issues](https://github.com/yourusername/waterwatchrepo/issue
 
 ---
 
-**Built with 💙 for water quality monitoring**
+**Built for water quality monitoring**
