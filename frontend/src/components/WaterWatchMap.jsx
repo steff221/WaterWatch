@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Circle,
   CircleMarker,
   MapContainer,
   Pane,
   Polygon,
+  Popup,
   Polyline,
   TileLayer,
   Tooltip,
@@ -34,6 +36,11 @@ const BASEMAPS = {
     url: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
     attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
   },
+};
+
+const DARK_OVERLAY = {
+  url: 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
+  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
 };
 
 const RISK_COLORS = {
@@ -177,6 +184,24 @@ const DEMO_FLOW_STEPS = [
   'Public Alert',
 ];
 
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const NDWI_BASELINE = 0.42;
+const getNdwiValue = (sigma) => clamp(sigma / 5 + NDWI_BASELINE, 0, 1);
+const getNawiValue = (ndwi) => clamp(ndwi * 0.75, 0, 1);
+
+const getRiskTone = (risk) => {
+  if (risk >= 4) return 'high';
+  if (risk >= 3) return 'mid';
+  return 'good';
+};
+
+const getSigmaTone = (sigma) => {
+  const absSigma = Math.abs(sigma);
+  if (absSigma >= 3) return 'high';
+  if (absSigma >= 2) return 'mid';
+  return 'good';
+};
+
 function CursorTracker({ onCoordinateChange }) {
   useMapEvents({
     mousemove(e) {
@@ -211,6 +236,9 @@ const WaterWatchMap = () => {
   const [workflowStepIndex, setWorkflowStepIndex] = useState(0);
   const [demoFlowStarted, setDemoFlowStarted] = useState(false);
   const [demoFlowStep, setDemoFlowStep] = useState(0);
+  const [showNdwi, setShowNdwi] = useState(true);
+  const [showNawi, setShowNawi] = useState(true);
+  const [animateRisk, setAnimateRisk] = useState(true);
 
   const filteredStations = useMemo(() => {
     const q = stationFilter.trim().toLowerCase();
@@ -242,6 +270,34 @@ const WaterWatchMap = () => {
     () => futureForecast.forecast.map((item) => item.municipality).join(', '),
     [futureForecast]
   );
+
+  const indexSummary = useMemo(() => {
+    if (!filteredStations.length) {
+      return { ndwi: 0, nawi: 0, risk: 0 };
+    }
+
+    const metrics = filteredStations.map((station) => {
+      const ndwi = getNdwiValue(station.sg || 0);
+      const nawi = getNawiValue(ndwi);
+      return { ndwi, nawi, risk: station.rk || 0 };
+    });
+
+    const totals = metrics.reduce(
+      (acc, item) => {
+        acc.ndwi += item.ndwi;
+        acc.nawi += item.nawi;
+        acc.risk += item.risk;
+        return acc;
+      },
+      { ndwi: 0, nawi: 0, risk: 0 }
+    );
+
+    return {
+      ndwi: totals.ndwi / metrics.length,
+      nawi: totals.nawi / metrics.length,
+      risk: totals.risk / metrics.length,
+    };
+  }, [filteredStations]);
 
   const responseLevelByStep = ['Monitor', 'Prepare', 'Dispatch', 'Emergency', 'Monitor'];
   const responseLevel = responseLevelByStep[workflowStepIndex] || 'Monitor';
@@ -578,9 +634,12 @@ const WaterWatchMap = () => {
                 whenCreated={(map) => {
                   mapRef.current = map;
                 }}
-                className="leaflet-canvas"
+                className={`leaflet-canvas ${animateRisk ? '' : 'anim-paused'}`}
               >
                 <TileLayer attribution={BASEMAPS[basemap].attribution} url={BASEMAPS[basemap].url} />
+                {basemap === 'sat' && (
+                  <TileLayer attribution={DARK_OVERLAY.attribution} url={DARK_OVERLAY.url} opacity={0.45} />
+                )}
                 <CursorTracker
                   onCoordinateChange={(la, lo) => setCoordinates(`${la.toFixed(3)}°N  ${lo.toFixed(3)}°E`)}
                 />
@@ -635,10 +694,90 @@ const WaterWatchMap = () => {
                   ))}
                 </Pane>
 
+                {showNdwi && (
+                  <Pane name="ndwi-layer" style={{ zIndex: 455 }}>
+                    {stations.map((station) => {
+                      const ndwi = getNdwiValue(station.sg || 0);
+                      return (
+                        <Circle
+                          key={`ndwi-${station.id}`}
+                          center={[station.la, station.lo]}
+                          radius={8000}
+                          pathOptions={{
+                            color: '#35e0ff',
+                            weight: 1.4,
+                            dashArray: '6 6',
+                            fillColor: '#35e0ff',
+                            fillOpacity: 0.12 + ndwi * 0.45,
+                            opacity: 0.85,
+                          }}
+                        />
+                      );
+                    })}
+                  </Pane>
+                )}
+
+                {showNawi && (
+                  <Pane name="nawi-layer" style={{ zIndex: 460 }}>
+                    {stations.map((station) => {
+                      const ndwi = getNdwiValue(station.sg || 0);
+                      const nawi = getNawiValue(ndwi);
+                      return (
+                        <Circle
+                          key={`nawi-${station.id}`}
+                          center={[station.la, station.lo]}
+                          radius={6000}
+                          pathOptions={{
+                            color: '#a855f7',
+                            weight: 1.2,
+                            dashArray: '5 5',
+                            fillColor: '#a855f7',
+                            fillOpacity: 0.1 + nawi * 0.4,
+                            opacity: 0.8,
+                          }}
+                        />
+                      );
+                    })}
+                  </Pane>
+                )}
+
+                <Pane name="risk-pulse" style={{ zIndex: 475 }}>
+                  {stations
+                    .filter((station) => station.rk >= 4)
+                    .map((station) => (
+                      <React.Fragment key={`pulse-${station.id}`}>
+                        <Circle
+                          center={[station.la, station.lo]}
+                          radius={2200}
+                          pathOptions={{
+                            color: station.rk >= 5 ? '#ff5d5d' : '#f0a22e',
+                            weight: 1.4,
+                            fillOpacity: 0,
+                            className: 'pulse-ring pulse-ring-1',
+                          }}
+                        />
+                        <Circle
+                          center={[station.la, station.lo]}
+                          radius={2200}
+                          pathOptions={{
+                            color: station.rk >= 5 ? '#ff5d5d' : '#f0a22e',
+                            weight: 1.1,
+                            fillOpacity: 0,
+                            className: 'pulse-ring pulse-ring-2',
+                          }}
+                        />
+                      </React.Fragment>
+                    ))}
+                </Pane>
+
                 <Pane name="stations" style={{ zIndex: 500 }}>
                   {stations.map((station) => {
                     const selected = selectedStation?.id === station.id;
                     const radius = selected ? 10 : 7;
+                    const ndwi = getNdwiValue(station.sg || 0);
+                    const nawi = getNawiValue(ndwi);
+                    const riskTone = getRiskTone(station.rk || 0);
+                    const sigmaTone = getSigmaTone(station.sg || 0);
                     return (
                       <CircleMarker
                         key={station.id}
@@ -660,6 +799,36 @@ const WaterWatchMap = () => {
                           <div className="tip-row">Risk: {RISK_LABELS[station.rk] || 'Moderate'}</div>
                           <div className="tip-row">Sigma: {station.sg.toFixed(1)}</div>
                         </Tooltip>
+                        <Popup className="ww-popup" closeButton={false}>
+                          <div className="popup-title">{station.n}</div>
+                          <div className="popup-sub">{station.r} · {station.id}</div>
+                          <div className="popup-grid">
+                            <div className="popup-row">
+                              <span>Risk level</span>
+                              <strong className={`tone-${riskTone}`}>{RISK_LABELS[station.rk] || 'Moderate'}</strong>
+                            </div>
+                            <div className="popup-row">
+                              <span>Sigma</span>
+                              <strong className={`tone-${sigmaTone}`}>{station.sg.toFixed(2)}</strong>
+                            </div>
+                            <div className="popup-row">
+                              <span>NDWI</span>
+                              <strong className="tone-ndwi">{ndwi.toFixed(2)}</strong>
+                            </div>
+                            <div className="popup-row">
+                              <span>NAWI</span>
+                              <strong className="tone-nawi">{nawi.toFixed(2)}</strong>
+                            </div>
+                            <div className="popup-row">
+                              <span>WFD status</span>
+                              <strong className={`tone-${riskTone}`}>{station.wfd}</strong>
+                            </div>
+                            <div className="popup-row">
+                              <span>Source</span>
+                              <strong className="tone-source">{station.src}</strong>
+                            </div>
+                          </div>
+                        </Popup>
                       </CircleMarker>
                     );
                   })}
@@ -675,6 +844,40 @@ const WaterWatchMap = () => {
                 <div className="map-status-note">Risk signal, not final proof.</div>
               </div>
               <div className="crds">{coordinates}</div>
+              <div className="index-summary">
+                <div className="index-title">Index summary</div>
+                <div className="index-row">
+                  <span>Avg NDWI</span>
+                  <span>{indexSummary.ndwi.toFixed(2)}</span>
+                </div>
+                <div className="index-bar">
+                  <div
+                    className="index-fill ndwi"
+                    style={{ width: `${(indexSummary.ndwi * 100).toFixed(0)}%` }}
+                  />
+                </div>
+                <div className="index-row">
+                  <span>Avg NAWI</span>
+                  <span>{indexSummary.nawi.toFixed(2)}</span>
+                </div>
+                <div className="index-bar">
+                  <div
+                    className="index-fill nawi"
+                    style={{ width: `${(indexSummary.nawi * 100).toFixed(0)}%` }}
+                  />
+                </div>
+                <div className="index-row">
+                  <span>Avg risk</span>
+                  <span>{indexSummary.risk.toFixed(1)} / 5</span>
+                </div>
+                <div className="index-bar">
+                  <div
+                    className="index-fill risk"
+                    style={{ width: `${(indexSummary.risk / 5 * 100).toFixed(0)}%` }}
+                  />
+                </div>
+              </div>
+
               <div className="leg">
                 <div className="lr"><div className="ld" style={{ background: '#E24B4A' }} />Critical (5/5)</div>
                 <div className="lr"><div className="ld" style={{ background: '#EF9F27' }} />Very high (4/5)</div>
@@ -826,6 +1029,21 @@ const WaterWatchMap = () => {
                     <div className="dr"><span className="dl">EU WFD</span><span className="dv">{selectedStation.wfd}</span></div>
                     <div className="dr"><span className="dl">Sigma deviation</span><span className="dv">sigma = {selectedStation.sg.toFixed(1)}</span></div>
                     <div className="dr"><span className="dl">Coordinates</span><span className="dv">{selectedStation.la.toFixed(3)}N {selectedStation.lo.toFixed(3)}E</span></div>
+                    <div className="layer-controls">
+                      <div className="layer-title">Index layers</div>
+                      <label className="layer-row">
+                        <input type="checkbox" checked={showNdwi} onChange={(e) => setShowNdwi(e.target.checked)} />
+                        <span>NDWI rings</span>
+                      </label>
+                      <label className="layer-row">
+                        <input type="checkbox" checked={showNawi} onChange={(e) => setShowNawi(e.target.checked)} />
+                        <span>NAWI rings</span>
+                      </label>
+                      <label className="layer-row">
+                        <input type="checkbox" checked={animateRisk} onChange={(e) => setAnimateRisk(e.target.checked)} />
+                        <span>Risk pulse animation</span>
+                      </label>
+                    </div>
                   </>
                 )}
                 <button className="abtn" onClick={handleScrape} disabled={loading}>
@@ -981,7 +1199,7 @@ const WaterWatchMap = () => {
 
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        .ww-root { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #05080c; color: #d9e7f7; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        .ww-root { --ww-bg: #0a0e1a; --ww-accent: #60a5fa; --ww-cyan: #35e0ff; --ww-purple: #a855f7; --ww-warn: #f0a22e; --ww-danger: #ff5d5d; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--ww-bg); color: #d9e7f7; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: #0b121a; border-bottom: 1px solid #1b2b3c; }
         .logo { font-size: 14px; font-weight: 700; letter-spacing: 0.04em; color: #d4e7ff; }
         .logo b { color: #68afff; }
@@ -1133,6 +1351,37 @@ const WaterWatchMap = () => {
         .s2b { position: absolute; top: 10px; right: 10px; background: rgba(5, 11, 18, 0.92); border-radius: 8px; padding: 6px 10px; font-size: 10px; color: #8ab0d1; border: 1px solid #1d2f42; z-index: 1000; }
         .crds { position: absolute; bottom: 10px; right: 10px; background: rgba(5, 11, 18, 0.92); border-radius: 6px; padding: 4px 8px; font-size: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #8ab0d1; border: 1px solid #1d2f42; z-index: 1000; }
         .leg { position: absolute; bottom: 10px; left: 10px; background: rgba(5, 11, 18, 0.92); border-radius: 8px; padding: 8px 10px; border: 1px solid #1d2f42; z-index: 1000; }
+        .index-summary { position: absolute; bottom: 122px; left: 10px; z-index: 1000; width: 210px; border-radius: 10px; border: 1px solid #24384e; background: rgba(8, 14, 22, 0.92); padding: 10px; box-shadow: 0 0 0 1px rgba(35, 58, 82, 0.4) inset; }
+        .index-title { font-size: 11px; font-weight: 700; color: #d8efff; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+        .index-row { display: flex; justify-content: space-between; font-size: 10px; color: #a6c6e5; margin-bottom: 4px; }
+        .index-bar { width: 100%; height: 8px; border-radius: 999px; background: #162538; border: 1px solid #2b4766; overflow: hidden; margin-bottom: 8px; }
+        .index-fill { height: 100%; border-radius: 999px; transition: width 0.7s ease; animation: barGlow 2.4s ease-in-out infinite; }
+        .index-fill.ndwi { background: linear-gradient(90deg, #1cbad1, var(--ww-cyan)); }
+        .index-fill.nawi { background: linear-gradient(90deg, #7c3aed, var(--ww-purple)); }
+        .index-fill.risk { background: linear-gradient(90deg, #f5b14d, #ff5d5d); }
+        @keyframes barGlow { 0%, 100% { filter: brightness(0.9); } 50% { filter: brightness(1.2); } }
+        .layer-controls { margin-top: 8px; border: 1px solid #263a50; border-radius: 6px; padding: 7px; background: #0f1a27; }
+        .layer-title { font-size: 10px; font-weight: 700; color: #c9e3ff; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+        .layer-row { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #a8c7e5; margin-bottom: 4px; }
+        .layer-row:last-child { margin-bottom: 0; }
+        .layer-row input { accent-color: var(--ww-accent); }
+        .pulse-ring { animation: pulseRing 2.4s ease-out infinite; transform-origin: center; transform-box: fill-box; opacity: 0.8; }
+        .pulse-ring-2 { animation-delay: 0.6s; }
+        .anim-paused .pulse-ring { animation-play-state: paused; }
+        @keyframes pulseRing { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(2.2); opacity: 0; } }
+        .ww-popup .leaflet-popup-content-wrapper { background: rgba(7, 12, 20, 0.94); color: #d7e7f7; border: 1px solid #2b425c; box-shadow: 0 8px 18px rgba(2, 6, 12, 0.6); }
+        .ww-popup .leaflet-popup-tip { background: rgba(7, 12, 20, 0.94); border: 1px solid #2b425c; }
+        .popup-title { font-size: 12px; font-weight: 700; color: #e2f2ff; margin-bottom: 2px; }
+        .popup-sub { font-size: 10px; color: #92b6d8; margin-bottom: 6px; }
+        .popup-grid { display: grid; gap: 4px; }
+        .popup-row { display: flex; justify-content: space-between; font-size: 10px; color: #a6c6e5; }
+        .popup-row strong { font-weight: 700; }
+        .tone-high { color: var(--ww-danger); }
+        .tone-mid { color: var(--ww-warn); }
+        .tone-good { color: #52d58a; }
+        .tone-ndwi { color: var(--ww-cyan); }
+        .tone-nawi { color: var(--ww-purple); }
+        .tone-source { color: #7fb2ff; }
         .lr { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #9ab6d1; margin-bottom: 3px; }
         .lr:last-child { margin-bottom: 0; }
         .ld { width: 8px; height: 8px; border-radius: 50%; }

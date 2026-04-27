@@ -124,9 +124,9 @@ cp .env.example .env
 pip install -r requirements.txt
 
 # Run API server (development)
-npm run dev
+python app.py
 
-# Server runs at http://localhost:5001
+# Server runs at http://localhost:5000
 ```
 
 **Test API:**
